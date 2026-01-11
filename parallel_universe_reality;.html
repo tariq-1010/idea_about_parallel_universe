@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en" ng-app="SolarApp">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dynamic Spinning Earths — Adjustable Size</title>
+
+  <!-- Libraries -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    html, body {
+      margin: 0; height: 100%; width: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 30% 30%, #eaf1ff, #c9dbff);
+    }
+    canvas { display: block; }
+
+    .controls {
+      position: absolute;
+      top: 12px; left: 12px;
+      background: rgba(255,255,255,0.9);
+      padding: 12px 14px;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      color: #123;
+      z-index: 10;
+      width: 240px;
+    }
+
+    .controls label { display:block; margin-bottom:4px; font-weight:500; }
+    .controls input[type=range] { width: 100%; margin-bottom:10px; }
+  </style>
+</head>
+<body ng-controller="MainCtrl as vm">
+
+  <div class="controls">
+    <label>🌍 Number of Earths: <strong id="earthCountLabel">101</strong></label>
+    <input id="earthCount" type="range" min="1" max="1010" value="101">
+
+    <label>🌀 Rotation Speed: <strong id="speedLabel">1.0x</strong></label>
+    <input id="speedRange" type="range" min="0" max="1010" step="0.1" value="1">
+
+    <label>🌎 Earth Size: <strong id="sizeLabel">1.0×</strong></label>
+    <input id="sizeRange" type="range" min="0.5" max="1010" step="0.1" value="208">
+  </div>
+
+  <script>
+    angular.module('SolarApp', []).controller('MainCtrl', [function() { return this; }]);
+
+    $(function() {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 2000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Lights
+      const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambient);
+      const directional = new THREE.DirectionalLight(0xffffff, 0.8);
+      directional.position.set(10, 5, 10);
+      scene.add(directional);
+
+      // Earth texture
+      const loader = new THREE.TextureLoader();
+      const earthTexture = loader.load("https://upload.wikimedia.org/wikipedia/commons/6/6f/Earth_Eastern_Hemisphere.jpg");
+
+      const baseGeometry = new THREE.SphereGeometry(1.0, 16, 16);
+      const material = new THREE.MeshPhongMaterial({ map: earthTexture });
+
+      let instancedMesh = null;
+      let totalGlobes = 101;
+      let earthScale = 1.0;
+      const dummy = new THREE.Object3D();
+      const randomOffsets = [];
+
+      function createEarths(count) {
+        if (instancedMesh) scene.remove(instancedMesh);
+        instancedMesh = new THREE.InstancedMesh(baseGeometry, material, count);
+        randomOffsets.length = 0;
+
+        const radius = 120;
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2;
+          const layer = Math.floor(i / 100);
+          const dist = radius + Math.random() * 40 + layer * 3;
+          dummy.position.set(
+            Math.cos(angle * 3 + layer) * dist,
+            (Math.random() - 0.5) * 80,
+            Math.sin(angle * 3 + layer) * dist
+          );
+          dummy.rotation.set(Math.random(), Math.random(), Math.random());
+          dummy.scale.set(earthScale, earthScale, earthScale);
+          dummy.updateMatrix();
+          instancedMesh.setMatrixAt(i, dummy.matrix);
+          randomOffsets.push(Math.random() * 5);
+        }
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        scene.add(instancedMesh);
+      }
+
+      createEarths(totalGlobes);
+      camera.position.z = 300;
+
+      let speedMultiplier = 1.0;
+      const baseSpeed = 0.0008;
+
+      const $speedRange = $("#speedRange");
+      const $speedLabel = $("#speedLabel");
+      const $earthRange = $("#earthCount");
+      const $earthLabel = $("#earthCountLabel");
+      const $sizeRange = $("#sizeRange");
+      const $sizeLabel = $("#sizeLabel");
+
+      $speedRange.on("input change", function() {
+        speedMultiplier = parseFloat(this.value);
+        $speedLabel.text(speedMultiplier.toFixed(1) + "x");
+      });
+
+      $earthRange.on("input change", function() {
+        totalGlobes = parseInt(this.value);
+        $earthLabel.text(totalGlobes);
+        createEarths(totalGlobes);
+      });
+
+      $sizeRange.on("input change", function() {
+        earthScale = parseFloat(this.value);
+        $sizeLabel.text(earthScale.toFixed(1) + "×");
+        createEarths(totalGlobes);
+      });
+
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        if (instancedMesh) {
+          for (let i = 0; i < totalGlobes; i++) {
+            instancedMesh.getMatrixAt(i, dummy.matrix);
+            dummy.rotation.y += baseSpeed * speedMultiplier * (1 + randomOffsets[i]);
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(i, dummy.matrix);
+          }
+          instancedMesh.instanceMatrix.needsUpdate = true;
+        }
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    });
+  </script>
+</body>
+</html>
