@@ -1,2 +1,2 @@
 # idea_about_parallel_universe
-It is jQuery, AJAX, Angular JS animation for an idea about parallel universe;
+It is jQuery, AJAX, Angular JS animation for an idea about parallel universe; one can open this file in any web browser like Firefox; Chrome; Internet Explorer; Opera; This animation can be viewed in perspective of Line of Quran::Chapter Abraham::Day Earth Shall be Changing With Earth (Two Similar Earths What is Difference Between Them ) and Skies too; People Can be facing Allah;One Who is Hyper; This line of Quran is knowledgebase regarding this justice day that is currently going on and a phenomena that is happening today; REST Quran is same links all like Torath; Injeel; all PEACE (PEARL) scripts;
